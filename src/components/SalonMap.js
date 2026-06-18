@@ -32,16 +32,22 @@ export default function SalonMap({ salons }) {
         shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
+      if (!mapRef.current) return;
+
       // Koordinatlı salonları filtrele
-      const located = salons.filter(s => s.latitude && s.longitude);
-      if (located.length === 0 || !mapRef.current) return;
+      const located = (salons || []).filter(s => s.latitude && s.longitude);
 
-      const center = [
-        located.reduce((s, x) => s + Number(x.latitude), 0) / located.length,
-        located.reduce((s, x) => s + Number(x.longitude), 0) / located.length,
-      ];
+      // Merkez: salon varsa ortalaması, yoksa Almanya merkezi
+      const center = located.length > 0
+        ? [
+            located.reduce((s, x) => s + Number(x.latitude), 0) / located.length,
+            located.reduce((s, x) => s + Number(x.longitude), 0) / located.length,
+          ]
+        : [51.1657, 10.4515]; // Almanya merkezi
 
-      const map = Leaflet.map(mapRef.current).setView(center, 7);
+      const zoom = located.length > 1 ? 6 : located.length === 1 ? 12 : 6;
+
+      const map = Leaflet.map(mapRef.current).setView(center, zoom);
       instanceRef.current = map;
 
       Leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
