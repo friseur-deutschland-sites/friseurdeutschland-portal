@@ -6,7 +6,7 @@ export async function PATCH(req, { params }) {
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const allowed = ["role", "is_active", "can_self_create"];
+  const allowed = ["role", "is_active", "can_self_create", "can_create_free", "is_premium", "telegram_user_id"];
   const payload = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
 
   await sb(`portal_users?id=eq.${params.id}`, {
