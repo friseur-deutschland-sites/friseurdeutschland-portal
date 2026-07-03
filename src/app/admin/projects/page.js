@@ -25,6 +25,7 @@ export default function AdminProjects() {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [triggerLoading, setTriggerLoading] = useState(null);
+  const [tool, setTool] = useState(null); // "price" | "logo" | "domain"
 
   useEffect(() => {
     fetch("/api/admin/projects")
@@ -283,7 +284,7 @@ export default function AdminProjects() {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-3">
                   <button onClick={() => setEditing({ ...selected })}
                     className="flex-1 bg-accent hover:bg-accentdark text-white font-semibold py-2.5 rounded-xl transition-colors text-sm">
                     Bearbeiten
@@ -293,11 +294,239 @@ export default function AdminProjects() {
                     {triggerLoading === selected.project_id ? "Startet…" : "▶ Pipeline"}
                   </button>
                 </div>
+
+                {/* WERKZEUGE */}
+                <div className="border-t border-gray-100 pt-3">
+                  <div className="text-xs text-slate mb-2 font-medium uppercase tracking-wide">Werkzeuge</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => setTool("price")}
+                      className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-100 hover:border-accent/30 hover:bg-accent/5 transition-all text-xs text-ink">
+                      <span className="text-lg">💶</span> Preisliste
+                    </button>
+                    <button onClick={() => setTool("logo")}
+                      className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-100 hover:border-accent/30 hover:bg-accent/5 transition-all text-xs text-ink">
+                      <span className="text-lg">🎨</span> KI-Logo
+                    </button>
+                    <button onClick={() => setTool("domain")}
+                      className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-100 hover:border-accent/30 hover:bg-accent/5 transition-all text-xs text-ink">
+                      <span className="text-lg">🌐</span> Domain
+                    </button>
+                  </div>
+                </div>
               </>
             )}
           </div>
         </div>
       )}
+
+      {/* TOOL MODALS */}
+      {selected && tool === "price" && (
+        <PriceScanModal project={selected} toast={toast} onClose={() => setTool(null)} />
+      )}
+      {selected && tool === "logo" && (
+        <LogoGenerateModal project={selected} toast={toast} onClose={() => setTool(null)} />
+      )}
+      {selected && tool === "domain" && (
+        <DomainModal project={selected} toast={toast}
+          onClose={() => setTool(null)}
+          onMoved={(domain) => {
+            setProjects(prev => prev.map(p => p.project_id === selected.project_id ? { ...p, live_url: `https://${domain}` } : p));
+          }} />
+      )}
     </div>
+  );
+}
+
+function ToolModal({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-display font-bold text-ink">{title}</h2>
+          <button onClick={onClose} className="text-slate hover:text-ink text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function PriceScanModal({ project, toast, onClose }) {
+  const [imageUrl, setImageUrl] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState(null);
+
+  async function scan() {
+    if (!imageUrl.startsWith("http")) { toast("Gültige Bild-URL erforderlich.", "error"); return; }
+    setScanning(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/price-scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: project.project_id, image_url: imageUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || "Scan fehlgeschlagen.", "error"); return; }
+      setResult(data);
+      toast(`${data.total} Dienstleistungen übernommen.`, "success");
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  return (
+    <ToolModal title={`Preisliste scannen: ${project.salon_name || ""}`} onClose={onClose}>
+      <p className="text-slate text-sm mb-4">
+        Foto-URL der Preisliste eingeben. Die KI erkennt Dienstleistungen und Preise
+        und trägt sie automatisch auf der Website ein.
+      </p>
+      <input type="url" placeholder="https://… (Foto-URL)" value={imageUrl}
+        onChange={e => setImageUrl(e.target.value)}
+        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent mb-4" />
+      {result && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 text-sm text-green-800">
+          ✓ {result.total} Dienstleistungen gespeichert
+          <span className="text-green-600"> ({result.matched} Katalog, {result.custom} individuell)</span>
+        </div>
+      )}
+      <button onClick={scan} disabled={scanning}
+        className="w-full bg-accent hover:bg-accentdark text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60 text-sm">
+        {scanning ? "KI analysiert… (bis zu 1 Min.)" : "Scannen"}
+      </button>
+    </ToolModal>
+  );
+}
+
+function LogoGenerateModal({ project, toast, onClose }) {
+  const [generating, setGenerating] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(null);
+
+  async function generate() {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/admin/logo-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: project.project_id, salon_name: project.salon_name || "" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || "Logo-Generierung fehlgeschlagen.", "error"); return; }
+      setLogoUrl(data.url);
+      toast("Logo erstellt und gespeichert.", "success");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <ToolModal title={`KI-Logo: ${project.salon_name || ""}`} onClose={onClose}>
+      <p className="text-slate text-sm mb-4">
+        Erstellt ein neues Logo mit KI und speichert es als Projekt-Logo.
+        Vorhandenes Logo wird ersetzt.
+      </p>
+      {logoUrl && (
+        <div className="mb-4 flex justify-center">
+          <img src={logoUrl} alt="Generiertes Logo" className="w-40 h-40 rounded-2xl object-cover border border-gray-100" />
+        </div>
+      )}
+      <button onClick={generate} disabled={generating}
+        className="w-full bg-accent hover:bg-accentdark text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60 text-sm">
+        {generating ? "KI erstellt Logo… (bis zu 1 Min.)" : logoUrl ? "Neu generieren" : "Logo generieren"}
+      </button>
+    </ToolModal>
+  );
+}
+
+function DomainModal({ project, toast, onClose, onMoved }) {
+  const [domain, setDomain] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState(null); // { domain, available }
+  const [purchasing, setPurchasing] = useState(false);
+  const [started, setStarted] = useState(false);
+
+  async function check() {
+    const d = domain.trim().toLowerCase();
+    if (!d.includes(".")) { toast("Gültige Domain eingeben (z.B. mein-salon.de).", "error"); return; }
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const res = await fetch("/api/admin/domains/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: d }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || "Prüfung fehlgeschlagen.", "error"); return; }
+      setCheckResult(data);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function purchase() {
+    setPurchasing(true);
+    try {
+      const res = await fetch("/api/admin/domains/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: project.project_id, domain: checkResult.domain }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || "Kauf fehlgeschlagen.", "error"); return; }
+      setStarted(true);
+      onMoved?.(checkResult.domain);
+      toast("Domain-Kauf gestartet — Ergebnis kommt per Telegram.", "success");
+    } finally {
+      setPurchasing(false);
+    }
+  }
+
+  return (
+    <ToolModal title={`Eigene Domain: ${project.salon_name || ""}`} onClose={onClose}>
+      {started ? (
+        <div className="text-center py-4">
+          <div className="text-5xl mb-4">🚀</div>
+          <p className="text-ink font-medium mb-2">Kauf & Umzug gestartet!</p>
+          <p className="text-slate text-sm mb-4">
+            Die Domain <strong>{checkResult?.domain}</strong> wird gekauft und die Website
+            dorthin umgezogen. Das Ergebnis wird per Telegram gemeldet.
+            DNS-Verbreitung kann 1–24 Stunden dauern.
+          </p>
+          <button onClick={onClose} className="w-full border border-gray-200 text-slate py-2.5 rounded-xl hover:bg-gray-50 text-sm">Schließen</button>
+        </div>
+      ) : (
+        <>
+          <p className="text-slate text-sm mb-4">
+            Neue Domain kaufen und die Website von der Subdomain dorthin umziehen.
+            Aktuelle Adresse: <span className="font-mono text-xs">{project.live_url || "—"}</span>
+          </p>
+          <div className="flex gap-2 mb-4">
+            <input type="text" placeholder="mein-salon.de" value={domain}
+              onChange={e => { setDomain(e.target.value); setCheckResult(null); }}
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent" />
+            <button onClick={check} disabled={checking}
+              className="bg-ink text-white text-sm px-4 py-2.5 rounded-xl hover:bg-slate transition-colors disabled:opacity-60 shrink-0">
+              {checking ? "Prüft…" : "Prüfen"}
+            </button>
+          </div>
+          {checkResult && (
+            checkResult.available ? (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                <p className="text-green-800 text-sm font-medium mb-3">✓ {checkResult.domain} ist verfügbar!</p>
+                <button onClick={purchase} disabled={purchasing}
+                  className="w-full bg-accent hover:bg-accentdark text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60 text-sm">
+                  {purchasing ? "Startet…" : "Kaufen & Veröffentlichen"}
+                </button>
+              </div>
+            ) : (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700">
+                ✕ {checkResult.domain} ist bereits vergeben. Bitte andere Domain versuchen.
+              </div>
+            )
+          )}
+        </>
+      )}
+    </ToolModal>
   );
 }
