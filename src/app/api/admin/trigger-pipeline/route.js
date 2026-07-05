@@ -21,7 +21,7 @@ export async function POST(req) {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 20000);
 
   let webhookOk = false;
   let errorText = "";
@@ -44,7 +44,7 @@ export async function POST(req) {
     }
   } catch (e) {
     clearTimeout(timer);
-    errorText = e.name === "AbortError" ? "Webhook zaman aşımı (8s) — sunucu erişilemiyor" : e.message;
+    errorText = e.name === "AbortError" ? "Webhook zaman aşımı (20s) — sunucu erişilemiyor" : e.message;
   }
 
   if (!webhookOk) {
