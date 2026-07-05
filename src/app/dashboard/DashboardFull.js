@@ -131,12 +131,29 @@ export default function DashboardFull({ user }) {
   );
 }
 
+const EMPTY_FORM = {
+  salon_name: "",
+  address: "",
+  phone: "",
+  email: "",
+  description: "",
+  hours_weekdays: "09:00 - 18:00",
+  hours_saturday: "09:00 - 14:00",
+  hours_sunday: "geschlossen",
+  domain_type: "subdomain",
+  desired_domain: "",
+};
+
 function NewSiteFlow({ user, onBack, onCreated }) {
   const { tx } = useLang();
   const [step, setStep] = useState(1);
   const [planId, setPlanId] = useState(null);
   const [plans, setPlans] = useState([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [logoFile, setLogoFile] = useState(null);
+  const [priceFiles, setPriceFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState("");
   const [projectId, setProjectId] = useState(null);
   const [error, setError] = useState("");
 
@@ -144,23 +161,79 @@ function NewSiteFlow({ user, onBack, onCreated }) {
     fetch("/api/pricing").then(r => r.json()).then(d => setPlans(d.plans || []));
   }, []);
 
-  async function createProject() {
+  function set(key, value) {
+    setForm(p => ({ ...p, [key]: value }));
+  }
+
+  async function uploadFile(file) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload fehlgeschlagen.");
+    return data.url;
+  }
+
+  async function submitAll() {
+    if (!form.salon_name.trim() || !form.address.trim()) {
+      setError("Salonname und Adresse sind erforderlich.");
+      return;
+    }
+    if (form.domain_type === "own" && !form.desired_domain.trim()) {
+      setError("Bitte Wunschdomain angeben oder kostenlose Subdomain wählen.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
+      // 1. Görselleri yükle
+      let logo_url = "";
+      const price_list_urls = [];
+      if (logoFile) {
+        setProgress(tx.uploading_logo || "Logo wird hochgeladen…");
+        logo_url = await uploadFile(logoFile);
+      }
+      for (let i = 0; i < priceFiles.length; i++) {
+        setProgress(`${tx.uploading_price || "Preisliste wird hochgeladen"} (${i + 1}/${priceFiles.length})…`);
+        price_list_urls.push(await uploadFile(priceFiles[i]));
+      }
+
+      // 2. Projeyi oluştur
+      setProgress(tx.creating || "Projekt wird erstellt…");
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_id: planId }),
+        body: JSON.stringify({
+          plan_id: planId,
+          salon_name: form.salon_name,
+          address: form.address,
+          phone: form.phone,
+          email: form.email,
+          description: form.description,
+          opening_hours: {
+            "Mo-Fr": form.hours_weekdays,
+            "Sa": form.hours_saturday,
+            "So": form.hours_sunday,
+          },
+          domain_type: form.domain_type,
+          desired_domain: form.desired_domain,
+          logo_url,
+          price_list_urls,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Fehler."); return; }
       setProjectId(data.project_id);
-      setStep(3);
+      setStep(4);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setSubmitting(false);
+      setProgress("");
     }
   }
+
+  const inputCls = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent bg-white";
 
   return (
     <div className="min-h-screen bg-cream font-body">
@@ -176,10 +249,10 @@ function NewSiteFlow({ user, onBack, onCreated }) {
       <main className="mx-auto max-w-2xl px-4 py-12">
         {/* STEP INDICATOR */}
         <div className="flex items-center gap-4 mb-10">
-          {[1, 2, 3].map(s => (
+          {[1, 2, 3, 4].map(s => (
             <div key={s} className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${step >= s ? "bg-accent text-white" : "bg-gray-200 text-gray-500"}`}>{s}</div>
-              {s < 3 && <div className={`h-0.5 w-12 transition-colors ${step > s ? "bg-accent" : "bg-gray-200"}`} />}
+              {s < 4 && <div className={`h-0.5 w-10 transition-colors ${step > s ? "bg-accent" : "bg-gray-200"}`} />}
             </div>
           ))}
         </div>
@@ -188,11 +261,11 @@ function NewSiteFlow({ user, onBack, onCreated }) {
         {step === 1 && (
           <div>
             <h2 className="font-display text-2xl font-bold text-ink mb-3">{tx.step1_title || "Wie es funktioniert"}</h2>
-            <p className="text-slate mb-6">{tx.new_site_info || "Nach der Registrierung senden Sie uns Ihre Salon-Informationen über unseren Telegram-Bot. Wir erstellen dann Ihre Website innerhalb weniger Tage."}</p>
+            <p className="text-slate mb-6">{tx.new_site_info || "Füllen Sie das Formular direkt hier im Portal aus — oder senden Sie uns Ihre Infos alternativ über unseren Telegram-Bot. Ihre Website wird automatisch erstellt."}</p>
             <div className="space-y-4 mb-8">
               {[
-                { icon: "💬", text: tx.new_step1 || "Wählen Sie einen Plan und registrieren Sie Ihr Projekt" },
-                { icon: "📩", text: tx.new_step2 || "Senden Sie Salon-Infos per Telegram (Name, Adresse, Fotos, Öffnungszeiten)" },
+                { icon: "📋", text: tx.new_step1 || "Plan wählen und Salon-Infos im Formular eintragen" },
+                { icon: "🖼", text: tx.new_step2 || "Logo und Preisliste hochladen (optional) — kein Logo? Unsere KI erstellt eines" },
                 { icon: "⚡", text: tx.new_step3 || "Unser System erstellt Ihre Website automatisch" },
                 { icon: "🌐", text: tx.new_step4 || "Ihre Website geht live — Kunden können Termine buchen" },
               ].map((item, i) => (
@@ -202,6 +275,9 @@ function NewSiteFlow({ user, onBack, onCreated }) {
                 </div>
               ))}
             </div>
+            <p className="text-slate text-xs mb-4 text-center">
+              {tx.telegram_alt || "Alternativ können Sie alles auch per Telegram-Bot erledigen."}
+            </p>
             <button onClick={() => setStep(2)} className="w-full bg-accent hover:bg-accentdark text-white font-semibold py-3 rounded-xl transition-colors">
               {tx.continue || "Weiter"} →
             </button>
@@ -240,10 +316,114 @@ function NewSiteFlow({ user, onBack, onCreated }) {
                 ))}
               </div>
             )}
-            {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
             <div className="flex gap-3">
               <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-slate py-3 rounded-xl hover:bg-gray-50 transition-colors">← {tx.back || "Zurück"}</button>
-              <button onClick={createProject} disabled={!planId || submitting}
+              <button onClick={() => setStep(3)} disabled={!planId}
+                className="flex-1 bg-accent hover:bg-accentdark text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60">
+                {tx.continue || "Weiter"} →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: SALON FORM */}
+        {step === 3 && (
+          <div>
+            <h2 className="font-display text-2xl font-bold text-ink mb-6">{tx.salon_info || "Salon-Informationen"}</h2>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-slate mb-1.5">{tx.salon_name || "Salonname"} *</label>
+                <input type="text" value={form.salon_name} onChange={e => set("salon_name", e.target.value)}
+                  placeholder="z.B. Salon Schnittwerk" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate mb-1.5">{tx.address || "Adresse"} *</label>
+                <input type="text" value={form.address} onChange={e => set("address", e.target.value)}
+                  placeholder="Musterstraße 12, 10115 Berlin" className={inputCls} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate mb-1.5">{tx.phone || "Telefon"}</label>
+                  <input type="tel" value={form.phone} onChange={e => set("phone", e.target.value)}
+                    placeholder="+49 30 1234567" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate mb-1.5">{tx.email || "E-Mail"}</label>
+                  <input type="email" value={form.email} onChange={e => set("email", e.target.value)}
+                    placeholder="info@meinsalon.de" className={inputCls} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate mb-1.5">{tx.description || "Beschreibung (optional)"}</label>
+                <textarea value={form.description} onChange={e => set("description", e.target.value)} rows={3}
+                  placeholder="Erzählen Sie kurz über Ihren Salon: Spezialitäten, Team, Atmosphäre…" className={inputCls} />
+              </div>
+
+              {/* ÖFFNUNGSZEITEN */}
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <div className="text-sm font-medium text-ink mb-3">{tx.opening_hours || "Öffnungszeiten"}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    ["Mo–Fr", "hours_weekdays"],
+                    ["Samstag", "hours_saturday"],
+                    ["Sonntag", "hours_sunday"],
+                  ].map(([label, key]) => (
+                    <div key={key}>
+                      <label className="block text-xs text-slate mb-1">{label}</label>
+                      <input type="text" value={form[key]} onChange={e => set(key, e.target.value)} className={inputCls} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* DOMAIN */}
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <div className="text-sm font-medium text-ink mb-3">{tx.domain_choice || "Webadresse"}</div>
+                <label className="flex items-center gap-3 cursor-pointer mb-2">
+                  <input type="radio" name="domain_type" checked={form.domain_type === "subdomain"}
+                    onChange={() => set("domain_type", "subdomain")} className="accent-accent" />
+                  <span className="text-sm text-ink">{tx.free_subdomain || "Kostenlose Subdomain"} <span className="text-slate text-xs">(ihr-salon.friseurdeutschland.de)</span></span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="radio" name="domain_type" checked={form.domain_type === "own"}
+                    onChange={() => set("domain_type", "own")} className="accent-accent" />
+                  <span className="text-sm text-ink">{tx.own_domain || "Eigene Wunschdomain"} <span className="text-slate text-xs">(z.B. mein-salon.de)</span></span>
+                </label>
+                {form.domain_type === "own" && (
+                  <input type="text" value={form.desired_domain} onChange={e => set("desired_domain", e.target.value)}
+                    placeholder="mein-salon.de" className={`${inputCls} mt-3`} />
+                )}
+              </div>
+
+              {/* LOGO UPLOAD */}
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <div className="text-sm font-medium text-ink mb-1">{tx.logo_upload || "Logo (optional)"}</div>
+                <p className="text-xs text-slate mb-3">{tx.logo_hint || "Kein Logo? Kein Problem — unsere KI erstellt automatisch eines für Sie."}</p>
+                <input type="file" accept="image/jpeg,image/png,image/webp"
+                  onChange={e => setLogoFile(e.target.files?.[0] || null)}
+                  className="text-sm text-slate file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-accent/10 file:text-accent file:text-sm file:font-medium file:cursor-pointer" />
+                {logoFile && <p className="text-xs text-green-600 mt-2">✓ {logoFile.name}</p>}
+              </div>
+
+              {/* PREISLISTE UPLOAD */}
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <div className="text-sm font-medium text-ink mb-1">{tx.price_upload || "Preisliste als Foto (optional)"}</div>
+                <p className="text-xs text-slate mb-3">{tx.price_hint || "Unsere KI liest Ihre Preisliste und trägt alle Dienstleistungen automatisch auf der Website ein."}</p>
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple
+                  onChange={e => setPriceFiles(Array.from(e.target.files || []).slice(0, 5))}
+                  className="text-sm text-slate file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-accent/10 file:text-accent file:text-sm file:font-medium file:cursor-pointer" />
+                {priceFiles.length > 0 && (
+                  <p className="text-xs text-green-600 mt-2">✓ {priceFiles.length} {tx.files_selected || "Datei(en) ausgewählt"}</p>
+                )}
+              </div>
+            </div>
+
+            {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+            {progress && <p className="text-accent text-sm mb-4 text-center">{progress}</p>}
+            <div className="flex gap-3">
+              <button onClick={() => setStep(2)} disabled={submitting}
+                className="flex-1 border border-gray-200 text-slate py-3 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60">← {tx.back || "Zurück"}</button>
+              <button onClick={submitAll} disabled={submitting}
                 className="flex-1 bg-accent hover:bg-accentdark text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60">
                 {submitting ? (tx.creating || "Erstelle…") : (tx.create_project || "Projekt erstellen")}
               </button>
@@ -251,19 +431,19 @@ function NewSiteFlow({ user, onBack, onCreated }) {
           </div>
         )}
 
-        {/* STEP 3: DONE */}
-        {step === 3 && (
+        {/* STEP 4: DONE */}
+        {step === 4 && (
           <div className="text-center">
             <div className="text-7xl mb-6">🎉</div>
             <h2 className="font-display text-2xl font-bold text-ink mb-3">{tx.project_created || "Projekt erstellt!"}</h2>
-            <p className="text-slate mb-2">{tx.project_created_sub || "Ihr Projekt wurde angelegt. Nächster Schritt:"}</p>
+            <p className="text-slate mb-6">{tx.project_created_sub2 || "Ihre Angaben sind eingegangen. Wir erstellen jetzt Ihre Website — Sie erhalten den Link, sobald sie live ist."}</p>
             <div className="bg-white rounded-2xl p-6 text-left mb-6 space-y-3">
-              <p className="text-sm text-ink font-medium">{tx.next_steps || "Nächste Schritte:"}</p>
-              <p className="text-sm text-slate">1. {tx.next_step1 || "Kontaktieren Sie uns über Telegram mit Ihren Salon-Infos"}</p>
-              <p className="text-sm text-slate">2. {tx.next_step2 || "Senden Sie Fotos, Logo, Öffnungszeiten und Preisliste"}</p>
-              <p className="text-sm text-slate">3. {tx.next_step3 || "Wir erstellen Ihre Website und Sie erhalten den Link"}</p>
+              <p className="text-sm text-ink font-medium">{tx.next_steps || "So geht es weiter:"}</p>
+              <p className="text-sm text-slate">1. {tx.done_step1 || "Unser System erstellt Ihre Website automatisch"}</p>
+              <p className="text-sm text-slate">2. {tx.done_step2 || "Logo & Preisliste werden übernommen (bzw. per KI erstellt)"}</p>
+              <p className="text-sm text-slate">3. {tx.done_step3 || "Sie sehen den Status jederzeit hier im Dashboard"}</p>
             </div>
-            <button onClick={() => onCreated({ project_id: projectId, status: "pending" })}
+            <button onClick={() => onCreated({ project_id: projectId, salon_name: form.salon_name, status: "pending" })}
               className="w-full bg-accent hover:bg-accentdark text-white font-semibold py-3 rounded-xl transition-colors">
               {tx.back_to_dashboard || "Zum Dashboard"}
             </button>

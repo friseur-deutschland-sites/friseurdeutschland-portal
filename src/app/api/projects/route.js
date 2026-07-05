@@ -7,7 +7,23 @@ export async function POST(req) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const planId = body.plan_id || null;
+  const {
+    plan_id = null,
+    salon_name = "",
+    address = "",
+    phone = "",
+    email = "",
+    description = "",
+    opening_hours = {},
+    domain_type = "subdomain",
+    desired_domain = "",
+    logo_url = "",
+    price_list_urls = [],
+  } = body;
+
+  if (!salon_name.trim() || !address.trim()) {
+    return Response.json({ error: "Salonname und Adresse sind erforderlich." }, { status: 400 });
+  }
 
   const project_id = randomUUID();
   const now = new Date().toISOString();
@@ -18,12 +34,23 @@ export async function POST(req) {
       body: JSON.stringify({
         project_id,
         user_id: session.id,
-        plan_id: planId,
+        plan_id,
+        salon_name: salon_name.trim(),
+        address: address.trim(),
+        phone: phone.trim(),
+        contact_email: email.trim(),
+        description: description.trim(),
+        opening_hours,
+        domain_type: domain_type === "own" ? "own" : "subdomain",
+        desired_domain: desired_domain.trim(),
+        logo_url: logo_url || "",
+        price_list_urls: Array.isArray(price_list_urls) ? price_list_urls : [],
+        website_type: "appointment",
         // Portal üzerinden oluşturulan projelerde Telegram henüz bağlı değil;
         // kolon NOT NULL olduğu için boş string gönderilir.
         telegram_user_id: "",
         status: "pending",
-        current_step: "portal_created",
+        current_step: "form_submitted",
         created_at: now,
       }),
     });
