@@ -15,11 +15,70 @@ const STATUS_LABELS = {
   failed: { label: "Fehler", color: "bg-red-100 text-red-700" },
 };
 
+// Süreç çizelgesi (müşteri görünümü — kompakt)
+const PIPELINE_STEPS = [
+  { key: "form_submitted",     label: "Angaben erhalten" },
+  { key: "pipeline_queued",    label: "In Warteschlange" },
+  { key: "content_generation", label: "Inhalte werden erstellt" },
+  { key: "assembling",         label: "Website wird gebaut" },
+  { key: "domain_check",       label: "Webadresse" },
+  { key: "deployment",         label: "Veröffentlichung" },
+  { key: "done",               label: "Live" },
+];
+
+function MiniTimeline({ currentStep, status }) {
+  if (status === "cancelled" || status === "failed") return null;
+  const idx = PIPELINE_STEPS.findIndex(s => s.key === currentStep);
+  if (idx < 0 && status !== "completed") return null;
+  const activeIdx = status === "completed" ? PIPELINE_STEPS.length - 1 : idx;
+  const activeLabel = PIPELINE_STEPS[activeIdx]?.label || "";
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center gap-1.5">
+        {PIPELINE_STEPS.map((s, i) => (
+          <div key={s.key} className={`h-1.5 flex-1 rounded-full transition-colors ${
+            i < activeIdx ? "bg-green-500" :
+            i === activeIdx ? (status === "completed" ? "bg-green-500" : "bg-accent animate-pulse") :
+            "bg-gray-200"
+          }`} />
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-slate">
+        {status === "completed" ? "✓ Ihre Website ist live!" : `${activeLabel}…`}
+      </p>
+    </div>
+  );
+}
+
 export default function DashboardFull({ user }) {
   const { tx } = useLang();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewFlow, setShowNewFlow] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwMsg, setPwMsg] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+
+  async function changePassword(e) {
+    e.preventDefault();
+    setPwMsg("");
+    if (pwForm.next !== pwForm.confirm) { setPwMsg("⚠ Passwörter stimmen nicht überein."); return; }
+    if (pwForm.next.length < 8) { setPwMsg("⚠ Mindestens 8 Zeichen."); return; }
+    setPwLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setPwMsg("⚠ " + (d.error || "Fehler.")); return; }
+      setPwMsg("✓ Passwort geändert.");
+      setPwForm({ current: "", next: "", confirm: "" });
+    } catch (e) { setPwMsg("⚠ " + e.message); }
+    finally { setPwLoading(false); }
+  }
 
   useEffect(() => {
     fetch("/api/projects/my")
@@ -108,9 +167,16 @@ export default function DashboardFull({ user }) {
                         <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${statusInfo.color}`}>{statusInfo.label}</span>
                       </div>
                       <p className="text-slate text-sm mt-0.5">{p.city || p.address || "—"}</p>
+                      <MiniTimeline currentStep={p.current_step} status={p.status} />
                       {p.live_url && (
-                        <a href={p.live_url} target="_blank" rel="noopener noreferrer"
-                          className="text-accent text-sm hover:underline mt-1 inline-block">{p.live_url}</a>
+                        <div className="mt-2 flex items-center gap-3 flex-wrap">
+                          <a href={p.live_url} target="_blank" rel="noopener noreferrer"
+                            className="text-accent text-sm hover:underline">{p.live_url}</a>
+                          <a href={`${p.live_url.replace(/\/$/, "")}/admin`} target="_blank" rel="noopener noreferrer"
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-ink/5 text-ink hover:bg-ink/10 transition-colors">
+                            ⚙️ {tx.site_admin || "Website verwalten"}
+                          </a>
+                        </div>
                       )}
                       {needsRenewal && p.expires_at && (
                         <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-2 flex items-center justify-between gap-3">
@@ -127,6 +193,27 @@ export default function DashboardFull({ user }) {
             })}
           </div>
         )}
+
+        {/* ŞİFRE DEĞİŞTİR */}
+        <div className="mt-12 border-t border-gray-200 pt-8">
+          <h2 className="font-display text-lg font-semibold text-ink mb-4">{tx.change_pw_title || "Passwort ändern"}</h2>
+          <form onSubmit={changePassword} className="bg-white rounded-2xl shadow-sm p-5 max-w-sm space-y-3">
+            <input type="password" required placeholder={tx.change_pw_current || "Aktuelles Passwort"}
+              value={pwForm.current} onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent" />
+            <input type="password" required placeholder={tx.change_pw_new || "Neues Passwort (min. 8 Zeichen)"}
+              value={pwForm.next} onChange={e => setPwForm(p => ({ ...p, next: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent" />
+            <input type="password" required placeholder={tx.change_pw_confirm || "Neues Passwort wiederholen"}
+              value={pwForm.confirm} onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent" />
+            {pwMsg && <p className={`text-sm ${pwMsg.startsWith("✓") ? "text-green-700" : "text-red-600"}`}>{pwMsg}</p>}
+            <button disabled={pwLoading}
+              className="bg-accent hover:bg-accentdark text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-50">
+              {pwLoading ? "…" : (tx.change_pw_btn || "Passwort ändern")}
+            </button>
+          </form>
+        </div>
       </main>
     </div>
   );
