@@ -8,10 +8,11 @@ import { useLang } from "../../lib/i18n";
 
 const STATUS_LABELS = {
   pending: { label: "Ausstehend", color: "bg-yellow-100 text-yellow-800" },
-  info_submitted: { label: "Info eingereicht", color: "bg-blue-100 text-blue-800" },
-  building: { label: "In Bearbeitung", color: "bg-purple-100 text-purple-800" },
+  in_progress: { label: "In Bearbeitung", color: "bg-blue-100 text-blue-800" },
+  waiting_user: { label: "Wartet auf Sie", color: "bg-purple-100 text-purple-800" },
   completed: { label: "Live", color: "bg-green-100 text-green-800" },
   cancelled: { label: "Storniert", color: "bg-gray-100 text-gray-600" },
+  failed: { label: "Fehler", color: "bg-red-100 text-red-700" },
 };
 
 export default function DashboardFull({ user }) {
@@ -28,7 +29,7 @@ export default function DashboardFull({ user }) {
   }, []);
 
   const activeCount = projects.filter(p => p.status === "completed").length;
-  const pendingCount = projects.filter(p => ["pending", "info_submitted", "building"].includes(p.status)).length;
+  const pendingCount = projects.filter(p => ["pending", "in_progress", "waiting_user"].includes(p.status)).length;
 
   if (showNewFlow) {
     return <NewSiteFlow user={user} onBack={() => setShowNewFlow(false)} onCreated={(p) => { setProjects(prev => [p, ...prev]); setShowNewFlow(false); }} />;
