@@ -220,6 +220,7 @@ export default function DashboardFull({ user }) {
 }
 
 const EMPTY_FORM = {
+  business_type: "friseur",
   salon_name: "",
   address: "",
   phone: "",
@@ -232,6 +233,11 @@ const EMPTY_FORM = {
   desired_domain: "",
   template_id: "", // boş = otomatik seçim
 };
+
+const BUSINESS_TYPES = [
+  { id: "friseur", icon: "✂️", name: "Friseursalon", desc: "Haarschnitt, Färben, Styling — mit Online-Terminbuchung." },
+  { id: "nagelstudio", icon: "💅", name: "Nagelstudio", desc: "Maniküre, Pediküre, Gel & Acryl — mit Online-Terminbuchung." },
+];
 
 // Tasarım kataloğu — renk örnekleri her template'in paletini yansıtır
 const TEMPLATES = [
@@ -319,6 +325,7 @@ function NewSiteFlow({ user, onBack, onCreated }) {
           logo_url,
           price_list_urls,
           template_id: form.template_id,
+          business_type: form.business_type,
         }),
       });
       const data = await res.json();
@@ -431,6 +438,24 @@ function NewSiteFlow({ user, onBack, onCreated }) {
           <div>
             <h2 className="font-display text-2xl font-bold text-ink mb-6">{tx.salon_info || "Salon-Informationen"}</h2>
             <div className="space-y-4 mb-6">
+              {/* İŞLETME TİPİ */}
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <div className="text-sm font-medium text-ink mb-3">{tx.business_type || "Art des Betriebs"}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {BUSINESS_TYPES.map(b => (
+                    <button key={b.id} type="button" onClick={() => set("business_type", b.id)}
+                      className={`text-left rounded-xl border-2 p-3.5 transition-all ${form.business_type === b.id ? "border-accent bg-accent/5" : "border-gray-100 hover:border-accent/40"}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xl">{b.icon}</span>
+                        <span className="text-sm font-semibold text-ink">{b.name}</span>
+                        {form.business_type === b.id && <span className="ml-auto text-accent text-sm">✓</span>}
+                      </div>
+                      <p className="text-xs text-slate leading-snug">{b.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate mb-1.5">{tx.salon_name || "Salonname"} *</label>
                 <input type="text" value={form.salon_name} onChange={e => set("salon_name", e.target.value)}
