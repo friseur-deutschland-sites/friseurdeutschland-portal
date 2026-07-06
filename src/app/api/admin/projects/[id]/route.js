@@ -31,7 +31,7 @@ export async function PATCH(req, { params }) {
     const body = await req.json();
     const allowed = [
       "status", "current_step", "errors", "salon_name", "live_url",
-      "expires_at", "city", "logo_url", "cover_photo_url",
+      "expires_at", "city", "logo_url", "cover_photo_url", "template_id",
     ];
     const payload = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
 

@@ -12,6 +12,15 @@ const ALL_STEPS = [
   { key: "done", label: "Tamamlandı" },
 ];
 
+const TEMPLATES = [
+  { id: "", name: "Otomatik seçim" },
+  { id: "appointment_01", name: "01 — Modern & Feminen" },
+  { id: "appointment_02", name: "02 — Lüks & Premium" },
+  { id: "appointment_03", name: "03 — Barbershop Klasik" },
+  { id: "appointment_04", name: "04 — Nordic Doğal" },
+  { id: "appointment_05", name: "05 — Minimal Siyah-Beyaz" },
+];
+
 const STEP_ORDER = ALL_STEPS.map((s) => s.key);
 
 function stepIndex(step) {
@@ -31,6 +40,7 @@ export default function ProjectDetailModal({ projectId, onClose, onUpdated }) {
   const [showDomain, setShowDomain] = useState(false);
   const [domainInput, setDomainInput] = useState("");
   const [domainCheck, setDomainCheck] = useState(null);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   useEffect(() => {
     fetch(`/api/admin/projects/${projectId}`)
@@ -173,6 +183,28 @@ export default function ProjectDetailModal({ projectId, onClose, onUpdated }) {
       setShowDomain(false);
       setDomainCheck(null);
       setDomainInput("");
+      onUpdated?.();
+    } catch (e) {
+      setError("Bağlantı hatası: " + e.message);
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function changeTemplate(templateId) {
+    setAction("template");
+    setError("");
+    setTemplateSaved(false);
+    try {
+      const res = await fetch(`/api/admin/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: templateId }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(d.error || `Hata (${res.status})`); return; }
+      setData(prev => ({ ...prev, project: { ...prev.project, template_id: templateId } }));
+      setTemplateSaved(true);
       onUpdated?.();
     } catch (e) {
       setError("Bağlantı hatası: " + e.message);
@@ -329,6 +361,27 @@ export default function ProjectDetailModal({ projectId, onClose, onUpdated }) {
                     </div>
                   ))}
                 </dl>
+              </section>
+
+              {/* Design / Template */}
+              <section>
+                <h3 className="font-semibold text-sm uppercase tracking-wide text-slate mb-3">Design / Template</h3>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={TEMPLATES.some(t => t.id === (project.template_id || "")) ? (project.template_id || "") : ""}
+                    onChange={e => changeTemplate(e.target.value)}
+                    disabled={!!action}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent bg-white disabled:opacity-60">
+                    {TEMPLATES.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  {action === "template" && <span className="text-xs text-slate shrink-0">Kaydediliyor…</span>}
+                  {templateSaved && action !== "template" && <span className="text-xs text-green-600 shrink-0">✓ Kaydedildi</span>}
+                </div>
+                <p className="mt-2 text-xs text-slate">
+                  Değişiklik hemen yayına yansımaz — bir sonraki <strong>&quot;Yeniden Derle &amp; Yayınla&quot;</strong> işleminde site yeni tasarımla kurulur.
+                </p>
               </section>
 
               {/* Fatura Kayıtları */}
