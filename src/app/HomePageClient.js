@@ -6,6 +6,7 @@ import Logo from "../components/Logo";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import SalonCard from "../components/SalonCard";
 import { useLang } from "../lib/i18n";
+import { BRAND } from "../lib/brand";
 
 const SalonMap = dynamic(() => import("../components/SalonMap"), { ssr: false });
 
@@ -69,17 +70,17 @@ export default function HomePageClient({ initialSalons = [], allCities = [], pri
                 top: `${[10, 40, 70, 5, 50, 80][i]}%`,
                 left: `${[5, 25, 55, 75, 85, 10][i]}%`,
                 transform: `rotate(${[15, -20, 10, -15, 25, -10][i]}deg)`,
-              }}>✂</div>
+              }}>{BRAND.id === "nagelstudio" ? "💅" : "✂"}</div>
           ))}
         </div>
         <div className="relative mx-auto max-w-7xl px-4 py-24 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 text-white/70 text-sm px-4 py-1.5 rounded-full mb-6">
-            <span>✂</span>
-            <span>Professionelle Friseursalons in Deutschland</span>
+            <span>{BRAND.id === "nagelstudio" ? "💅" : "✂"}</span>
+            <span>Professionelle {BRAND.businessWordPlural} in Deutschland</span>
           </div>
           <h1 className="font-display text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
-            {tx.hero_title || "Ihre Website für den"}<br />
-            <span className="text-accent">{tx.hero_highlight || "Friseursalon"}</span>
+            {tx.hero_title || (BRAND.id === "nagelstudio" ? "Ihre Website für das" : "Ihre Website für den")}<br />
+            <span className="text-accent">{BRAND.businessWord}</span>
           </h1>
           <p className="text-white/60 text-xl mb-10 max-w-2xl mx-auto">
             {tx.hero_sub || "Wir erstellen Ihre professionelle Salon-Website mit Online-Terminbuchung — schnell, einfach und bezahlbar."}
@@ -121,7 +122,7 @@ export default function HomePageClient({ initialSalons = [], allCities = [], pri
               {tx.features_title || "Alles was Ihr Salon braucht"}
             </h2>
             <p className="text-slate text-lg max-w-xl mx-auto">
-              {tx.features_sub || "Vollständige Website-Lösung speziell für Friseursalons entwickelt."}
+              {tx.features_sub || `Vollständige Website-Lösung speziell für ${BRAND.businessWordPlural} entwickelt.`}
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -188,7 +189,7 @@ export default function HomePageClient({ initialSalons = [], allCities = [], pri
         <section className="py-16 px-4 bg-white">
           <div className="mx-auto max-w-7xl">
             <h2 className="font-display text-2xl font-bold text-ink mb-2 text-center">
-              {tx.new_partners_title || "Neu auf FriseurDeutschland"}
+              {tx.new_partners_title || `Neu auf ${BRAND.siteName}`}
             </h2>
             <p className="text-slate text-center mb-8 text-sm">{tx.new_partners_sub || "Willkommen unseren neuesten Partnern"}</p>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -232,10 +233,10 @@ export default function HomePageClient({ initialSalons = [], allCities = [], pri
         <div className="mx-auto max-w-7xl">
           <div className="text-center mb-10">
             <h2 className="font-display text-4xl font-bold text-ink mb-4">
-              {tx.directory_title || "Friseursalons entdecken"}
+              {tx.directory_title || `${BRAND.businessWordPlural} entdecken`}
             </h2>
             <p className="text-slate text-lg mb-8">
-              {tx.directory_sub || "Finden Sie den perfekten Friseur in Ihrer Nähe."}
+              {tx.directory_sub || `Entdecken Sie ${BRAND.businessWordPlural} in Ihrer Nähe.`}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto">
               <input
@@ -350,7 +351,7 @@ export default function HomePageClient({ initialSalons = [], allCities = [], pri
             <div className="flex-1 max-w-xs">
               <Logo size={40} showText />
               <p className="text-white/40 text-sm mt-3 leading-relaxed">
-                {tx.footer_tagline || "Professionelle Websites & Online-Terminbuchung für Friseursalons in Deutschland."}
+                {tx.footer_tagline || `Professionelle Websites & Online-Terminbuchung für ${BRAND.businessWordPlural} in Deutschland.`}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-10 text-sm">
@@ -374,7 +375,7 @@ export default function HomePageClient({ initialSalons = [], allCities = [], pri
             </div>
           </div>
           <div className="border-t border-white/10 pt-6 text-center text-white/30 text-xs">
-            © {new Date().getFullYear()} FriseurDeutschland — Ihr Salon-Verzeichnis für Deutschland
+            © {new Date().getFullYear()} {BRAND.siteName} — Ihr Verzeichnis für Deutschland
           </div>
         </div>
       </footer>

@@ -20,7 +20,8 @@ export async function POST(req) {
     logo_url = "",
     price_list_urls = [],
     template_id = "",
-    business_type = "friseur",
+    // Varsayılan: portalın markası (nagelstudio portalında nagelstudio)
+    business_type = process.env.NEXT_PUBLIC_BRAND === "nagelstudio" ? "nagelstudio" : "friseur",
   } = body;
 
   const ALLOWED_TEMPLATES = ["appointment_01", "appointment_02", "appointment_03", "appointment_04", "appointment_05"];

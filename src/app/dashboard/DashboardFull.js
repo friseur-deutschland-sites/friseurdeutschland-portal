@@ -220,7 +220,7 @@ export default function DashboardFull({ user }) {
 }
 
 const EMPTY_FORM = {
-  business_type: "friseur",
+  business_type: process.env.NEXT_PUBLIC_BRAND === "nagelstudio" ? "nagelstudio" : "friseur",
   salon_name: "",
   address: "",
   phone: "",
