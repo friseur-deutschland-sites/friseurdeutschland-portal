@@ -230,7 +230,18 @@ const EMPTY_FORM = {
   hours_sunday: "geschlossen",
   domain_type: "subdomain",
   desired_domain: "",
+  template_id: "", // boş = otomatik seçim
 };
+
+// Tasarım kataloğu — renk örnekleri her template'in paletini yansıtır
+const TEMPLATES = [
+  { id: "", name: "Automatisch", desc: "Wir wählen das passende Design für Ihren Salon.", colors: ["#ff6b35", "#1a1f2b", "#faf7f2"], badge: "Empfohlen" },
+  { id: "appointment_01", name: "Modern & Feminin", desc: "Helle Rosé-Creme-Töne, elegant. Ideal für Damensalons & Beauty.", colors: ["#c9776b", "#4a3733", "#f7efe9"] },
+  { id: "appointment_02", name: "Luxus & Premium", desc: "Goldakzente, Serifenschrift. Für gehobene Salons & Barbershops.", colors: ["#b08d57", "#2b2420", "#f5f0e8"] },
+  { id: "appointment_03", name: "Barbershop Klassik", desc: "Dunkelblau-Weiß, Vintage-Ästhetik. Herrenfokus.", colors: ["#1e2a3a", "#c05a3c", "#f2efe9"] },
+  { id: "appointment_04", name: "Nordisch Natürlich", desc: "Grün-Beige, organisch, viel Weißraum. Für naturnahe Salons.", colors: ["#7a8b6f", "#3d3a33", "#f6f4ee"] },
+  { id: "appointment_05", name: "Minimal Schwarz-Weiß", desc: "Pur & minimalistisch, starke Typografie. Für moderne Salons.", colors: ["#1a1a1a", "#666666", "#ffffff"] },
+];
 
 function NewSiteFlow({ user, onBack, onCreated }) {
   const { tx } = useLang();
@@ -307,6 +318,7 @@ function NewSiteFlow({ user, onBack, onCreated }) {
           desired_domain: form.desired_domain,
           logo_url,
           price_list_urls,
+          template_id: form.template_id,
         }),
       });
       const data = await res.json();
@@ -460,6 +472,32 @@ function NewSiteFlow({ user, onBack, onCreated }) {
                       <label className="block text-xs text-slate mb-1">{label}</label>
                       <input type="text" value={form[key]} onChange={e => set(key, e.target.value)} className={inputCls} />
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* DESIGN / TEMPLATE */}
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <div className="text-sm font-medium text-ink mb-1">{tx.design_choice || "Design wählen"}</div>
+                <p className="text-xs text-slate mb-3">{tx.design_hint || "Nicht sicher? Lassen Sie uns automatisch wählen."}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {TEMPLATES.map(t => (
+                    <button key={t.id} type="button" onClick={() => set("template_id", t.id)}
+                      className={`text-left rounded-xl border-2 p-3 transition-all ${form.template_id === t.id ? "border-accent bg-accent/5" : "border-gray-100 hover:border-accent/40"}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-1">
+                            {t.colors.map((c, i) => (
+                              <span key={i} className="inline-block h-4 w-4 rounded-full border border-white" style={{ backgroundColor: c }} />
+                            ))}
+                          </div>
+                          <span className="text-sm font-semibold text-ink">{t.name}</span>
+                        </div>
+                        {t.badge && <span className="text-[10px] bg-accent text-white px-1.5 py-0.5 rounded-full">{t.badge}</span>}
+                        {form.template_id === t.id && !t.badge && <span className="text-accent text-sm">✓</span>}
+                      </div>
+                      <p className="text-xs text-slate leading-snug">{t.desc}</p>
+                    </button>
                   ))}
                 </div>
               </div>

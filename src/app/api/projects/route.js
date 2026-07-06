@@ -19,7 +19,11 @@ export async function POST(req) {
     desired_domain = "",
     logo_url = "",
     price_list_urls = [],
+    template_id = "",
   } = body;
+
+  const ALLOWED_TEMPLATES = ["appointment_01", "appointment_02", "appointment_03", "appointment_04", "appointment_05"];
+  const chosenTemplate = ALLOWED_TEMPLATES.includes(template_id) ? template_id : "";
 
   if (!salon_name.trim() || !address.trim()) {
     return Response.json({ error: "Salonname und Adresse sind erforderlich." }, { status: 400 });
@@ -45,6 +49,8 @@ export async function POST(req) {
         desired_domain: desired_domain.trim(),
         logo_url: logo_url || "",
         price_list_urls: Array.isArray(price_list_urls) ? price_list_urls : [],
+        // Boş bırakılırsa pipeline otomatik seçer
+        template_id: chosenTemplate,
         website_type: "appointment",
         // Portal üzerinden oluşturulan projelerde Telegram henüz bağlı değil;
         // kolon NOT NULL olduğu için boş string gönderilir.
